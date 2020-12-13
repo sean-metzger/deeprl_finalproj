@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     analysis = tune.run(
         pbt_function,
-        name="pbt_test",
+        name="pbt_test_cln",
         scheduler=pbt,
         verbose=1,
         metric="mean_accuracy",
