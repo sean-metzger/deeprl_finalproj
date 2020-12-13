@@ -51,8 +51,11 @@ from ray.rllib.agents.ppo import PPOTrainer
 from ray.tune.schedulers import PopulationBasedTraining
     
 def train_RL(config, checkpoint_dir=None): 
+    """
+    This is the PBT code to train the agent. It evaluates the agents on the env without any assist. 
+    """
     
-    print('called TRAINRL', 'checkpoint_dir', checkpoint_dir, 'reporter', reporter)
+#     print('called TRAINRL', 'checkpoint_dir', checkpoint_dir, 'reporter', reporter)
     # Get the assist amount.
     
     # Take a train step with the policy
@@ -108,8 +111,8 @@ def train_RL(config, checkpoint_dir=None):
             path = path[:-1]
             path = ('/').join(path) #os.path.join(checkpoint_dir, "checkpoint")
             checkpoint = agent.save(path)
-            print("checkpoint saved at", checkpoint)
-            print('path passed into agent save', path)
+#             print("checkpoint saved at", checkpoint)
+#             print('path passed into agent save', path)
         
         step+=1
         tune.report(**res_me)
@@ -122,7 +125,13 @@ def decrease_alpha(config):
     new_config['alpha'] = config['alpha']*5/6
     return new_config
 
-def classic(config): 
+def decrease_alpha_free_lr(config):
+    new_config = copy.deepcopy(config)
+    new_config['lr'] = 5e-5
+    new_config['alpha'] = config['alpha']*5/6
+    return new_config
+
+def original(config): 
     return new_config
 
     
@@ -162,8 +171,16 @@ if __name__ == "__main__":
     name = '%s_%s_alpha_max_%.3f_perturb_%d' %(args.name, args.explore_function, args.alpha_max, args.perturbation_interval)
     resources = PPOTrainer.default_resource_request(config).to_json()
 
-    if args.explore_function == 'classic': 
-        
+    
+    # Get the custom exploration function.
+    print('USING EXPLORE FUNCTION:', args.explore_function)
+    
+    if args.explore_function == 'original':
+        slm_explore= original
+    elif args.explore_function == 'decrease_alpha':
+        slm_explore =decrease_alpha
+    elif args.explore_function == 'decrease_alpha_free_lr':
+        slm_explore = decrease_alpha_free_lr
     
     # Start the scheduler.
     scheduler = PopulationBasedTraining(
