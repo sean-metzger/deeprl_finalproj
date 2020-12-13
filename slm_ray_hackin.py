@@ -127,23 +127,15 @@ def decrease_alpha(config):
 
 def decrease_alpha_free_lr(config):
     new_config = copy.deepcopy(config)
-    new_config['lr'] = 5e-5
     new_config['alpha'] = config['alpha']*5/6
     return new_config
-
-def original(config): 
-    return new_config
-
-    
-
-
 
 class CustomStopper(tune.Stopper):
     def __init__(self):
         self.should_stop = False
 
     def __call__(self, trial_id, result):
-        max_iter = 5 if args.smoke_test else 100
+        max_iter = 5 if args.smoke_test else 60
         if not self.should_stop and result["episode_reward_mean"] > 1000:
             self.should_stop = True
         return self.should_stop or result["training_iteration"] >= max_iter
@@ -160,7 +152,7 @@ reporter.add_metric_column('eval_rew_std')
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    ray.init()
+    ray.init(num_gpus=4, ignore_reinit_error=True, num_cpus=28)
     config = {
         'lr':5e-5,
         'alpha': tune.uniform(0, args.alpha_max),
@@ -176,17 +168,21 @@ if __name__ == "__main__":
     print('USING EXPLORE FUNCTION:', args.explore_function)
     
     if args.explore_function == 'original':
-        slm_explore= original
+        slm_explore= None
     elif args.explore_function == 'decrease_alpha':
         slm_explore =decrease_alpha
     elif args.explore_function == 'decrease_alpha_free_lr':
         slm_explore = decrease_alpha_free_lr
     
+    
+    print(slm_explore)
     # Start the scheduler.
     scheduler = PopulationBasedTraining(
         time_attr='training_iteration', 
         perturbation_interval=args.perturbation_interval,
-        custom_explore_fn=slm_explore,
+        hyperparam_mutations = { 
+            'alpha':tune.uniform(0, args.alpha_max)
+        }
     )
     
     analysis = tune.run(train_RL, 
