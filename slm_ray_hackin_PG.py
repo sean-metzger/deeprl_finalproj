@@ -49,6 +49,7 @@ import ray
 from ray import tune
 from ray.rllib.agents.ppo import PPOTrainer
 from ray.tune.schedulers import PopulationBasedTraining
+from ray.rllib.agents.pg import PGTrainer
     
 def train_RL(config, checkpoint_dir=None): 
     """

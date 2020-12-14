@@ -48,6 +48,7 @@ parser.add_argument('--perturbation_interval', type=int, default=1)
 import ray
 from ray import tune
 from ray.rllib.agents.ppo import PPOTrainer
+from ray.rllib.agents.ddpg import DDPGTrainer
 from ray.tune.schedulers import PopulationBasedTraining
     
 def train_RL(config, checkpoint_dir=None): 
@@ -69,7 +70,7 @@ def train_RL(config, checkpoint_dir=None):
                        }
     config['evaluation_interval']=1
     config['env_config']={'alpha':alpha}
-    agent = PPOTrainer(env='LunarLander-v2', config=config) # initialize agent...
+    agent = DDPGTrainer(env='FetchReach-v1', config=config) # initialize agent...
     
     if checkpoint_dir is not None: 
 #         for _ in range(10): 
@@ -91,7 +92,7 @@ def train_RL(config, checkpoint_dir=None):
             step = int(file.split('-')[1])
             path = os.path.join(path, file)
 #             print('new path', path)
-            agent= PPOTrainer(env='LunarLander-v2', config=config)
+            agent= DDPGTrainer(env='FetchReach-v1', config=config)
             agent.restore(path)
             
         except Exception: 
@@ -161,7 +162,7 @@ if __name__ == "__main__":
         "framework": "torch" if args.torch else "tf",
     }
     name = '%s_%s_alpha_max_%.3f_perturb_%d' %(args.name, args.explore_function, args.alpha_max, args.perturbation_interval)
-    resources = PPOTrainer.default_resource_request(config).to_json()
+    resources = DDPGTrainer.default_resource_request(config).to_json()
 
     
     # Get the custom exploration function.

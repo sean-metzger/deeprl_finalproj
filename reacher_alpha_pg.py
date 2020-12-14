@@ -45,10 +45,29 @@ parser.add_argument('--name', type=str, default='pbt')
 parser.add_argument('--num_samples', type=int, default=16)
 parser.add_argument('--perturbation_interval', type=int, default=1)
 
+parser.add_argument('--trainer', type=str, default='PPO')
+parser.add_argument('--search_type', type=str, default='loguniform')
+parser.add_argument('--env', type=str, default='FetchReach-v1')
+
+
 import ray
 from ray import tune
 from ray.rllib.agents.ppo import PPOTrainer
+from ray.rllib.agents.ddpg import DDPGTrainer
+from ray.rllib.agents.pg import PGTrainer
 from ray.tune.schedulers import PopulationBasedTraining
+
+args = parser.parse_args()
+
+if args.trainer == 'PPO': 
+    traincls = PPOTrainer
+elif args.trainer == 'PG': 
+    traincls = PGTrainer
+elif args.trainer == 'DDPG': 
+    traincls = DDPGTrainer
+else: 
+    assert False
+    
     
 def train_RL(config, checkpoint_dir=None): 
     """
@@ -69,7 +88,7 @@ def train_RL(config, checkpoint_dir=None):
                        }
     config['evaluation_interval']=1
     config['env_config']={'alpha':alpha}
-    agent = PPOTrainer(env='LunarLander-v2', config=config) # initialize agent...
+    agent = traincls(env=args.env, config=config) # initialize agent...
     
     if checkpoint_dir is not None: 
 #         for _ in range(10): 
@@ -91,7 +110,7 @@ def train_RL(config, checkpoint_dir=None):
             step = int(file.split('-')[1])
             path = os.path.join(path, file)
 #             print('new path', path)
-            agent= PPOTrainer(env='LunarLander-v2', config=config)
+            agent= traincls(env=args.env, config=config)
             agent.restore(path)
             
         except Exception: 
@@ -150,52 +169,61 @@ reporter=CLIReporter()
 reporter.add_metric_column('eval_rew_mean')
 reporter.add_metric_column('eval_rew_std')
 
-if __name__ == "__main__":
-    args = parser.parse_args()
-    ray.init(num_gpus=4, ignore_reinit_error=True, num_cpus=28)
-    config = {
-        'lr':5e-5,
-        'alpha': tune.loguniform(1e-5, args.alpha_max),
-        "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-        "num_workers": 0,
-        "framework": "torch" if args.torch else "tf",
-    }
-    name = '%s_%s_alpha_max_%.3f_perturb_%d' %(args.name, args.explore_function, args.alpha_max, args.perturbation_interval)
-    resources = PPOTrainer.default_resource_request(config).to_json()
 
+
+if args.search_type == 'loguniform': 
+    search_dist = tune.loguniform(1e-5, args.alpha_max)
+    init_dist = tune.loguniform(1e-4, args.alpha_max)
     
-    # Get the custom exploration function.
-    print('USING EXPLORE FUNCTION:', args.explore_function)
-    
-    if args.explore_function == 'original':
-        slm_explore= None
-    elif args.explore_function == 'decrease_alpha':
-        slm_explore =decrease_alpha
-    elif args.explore_function == 'decrease_alpha_free_lr':
-        slm_explore = decrease_alpha_free_lr
-    
-    
-    print(slm_explore)
-    # Start the scheduler.
-    scheduler = PopulationBasedTraining(
-        time_attr='training_iteration', 
-        perturbation_interval=args.perturbation_interval,
-        hyperparam_mutations = { 
-            'alpha':tune.loguniform(1e-4, args.alpha_max)
-        }
-    )
-    
-    analysis = tune.run(train_RL, 
-            resources_per_trial=resources,
-            config=config, 
-            metric="eval_rew_mean",
-            mode='max',
-            name=name,     
-            scheduler=scheduler, 
-            verbose=1,
-            stop=stopper, 
-            checkpoint_score_attr="eval_rew_mean",
-            keep_checkpoints_num=args.num_samples,
-            num_samples=args.num_samples,
-            progress_reporter=reporter
-    )
+elif args.search_type == 'uniform': 
+    search_dist = tune.uniform(0, args.alpha_max)
+    init_dist = tune.uniform(0, args.alpha_max)
+
+ray.init(num_gpus=4, ignore_reinit_error=True, num_cpus=28)
+config = {
+    'lr':5e-5,
+    'alpha': init_dist,
+    "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
+    "num_workers": 0,
+    "framework": "torch" if args.torch else "tf",
+}
+name = '%s_%s_%s_alpha_max_%.3f_perturb_%d_%s' %(args.trainer, args.name, args.explore_function, args.alpha_max, args.perturbation_interval, args.env)
+
+resources = traincls.default_resource_request(config).to_json()
+
+
+# Get the custom exploration function.
+print('USING EXPLORE FUNCTION:', args.explore_function)
+
+if args.explore_function == 'original':
+    slm_explore= None
+elif args.explore_function == 'decrease_alpha':
+    slm_explore =decrease_alpha
+elif args.explore_function == 'decrease_alpha_free_lr':
+    slm_explore = decrease_alpha_free_lr
+
+
+print(slm_explore)
+# Start the scheduler.
+scheduler = PopulationBasedTraining(
+    time_attr='training_iteration', 
+    perturbation_interval=args.perturbation_interval,
+    hyperparam_mutations = { 
+        'alpha':search_dist
+    }
+)
+
+analysis = tune.run(train_RL, 
+        resources_per_trial=resources,
+        config=config, 
+        metric="eval_rew_mean",
+        mode='max',
+        name=name,     
+        scheduler=scheduler, 
+        verbose=1,
+        stop=stopper, 
+        checkpoint_score_attr="eval_rew_mean",
+        keep_checkpoints_num=args.num_samples,
+        num_samples=args.num_samples,
+        progress_reporter=reporter
+)

@@ -108,18 +108,15 @@ if __name__ == "__main__":
         "my_model", TorchCustomModel if args.torch else CustomModel)
 
     config = {
-        "env": 'LunarLander-v2', #SimpleCorridor,  # or "corridor" if registered above
-#         "env_config": {
-#             "corridor_length": 5,
-#         },
+        "env": 'FetchReach-v1', #SimpleCorridor,  # or "corridor" if registered above
+        "env_config": {
+            "reward_type": 'sparse',
+            'alpha': 10
+        },
         # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-        "model": {
-            "custom_model": "my_model",
-        },
-        "vf_share_layers": True,
-        "lr": grid_search([1e-2, 1e-4, 1e-6]),  # try different lrs
-        "num_workers": 1,  # parallelism
+        "lr": grid_search([1e-4, 5e-5]),  # try different lrs
+        "num_workers": 2,  # parallelism
         "framework": "torch" if args.torch else "tf",
     }
 

@@ -45,9 +45,11 @@ parser.add_argument('--name', type=str, default='pbt')
 parser.add_argument('--num_samples', type=int, default=16)
 parser.add_argument('--perturbation_interval', type=int, default=1)
 
+
 import ray
 from ray import tune
 from ray.rllib.agents.ppo import PPOTrainer
+from ray.rllib.agents.ddpg import DDPGTrainer
 from ray.tune.schedulers import PopulationBasedTraining
     
 def train_RL(config, checkpoint_dir=None): 
@@ -106,6 +108,7 @@ def train_RL(config, checkpoint_dir=None):
         res_me['eval_rew_mean'] = result['evaluation']['episode_reward_mean']
         res_me['eval_rew_std'] = np.std(result['evaluation']['hist_stats']['episode_reward'])
         res_me['cur_alpha'] = config.pop('alpha', alpha)
+        res_me['cur_lr'] = config['lr']
         with tune.checkpoint_dir(step=step) as checkpoint_dir: 
             path = checkpoint_dir.split('/')
             path = path[:-1]
@@ -154,8 +157,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     ray.init(num_gpus=4, ignore_reinit_error=True, num_cpus=28)
     config = {
-        'lr':5e-5,
-        'alpha': tune.loguniform(1e-5, args.alpha_max),
+        'lr':tune.loguniform(1e-6, 1e-3),
+        'alpha': tune.loguniform(0, args.alpha_max),
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
         "num_workers": 0,
         "framework": "torch" if args.torch else "tf",
@@ -181,7 +184,8 @@ if __name__ == "__main__":
         time_attr='training_iteration', 
         perturbation_interval=args.perturbation_interval,
         hyperparam_mutations = { 
-            'alpha':tune.loguniform(1e-4, args.alpha_max)
+            'lr':tune.loguniform(1e-6, 1e-3),
+            'alpha':tune.loguniform(0, args.alpha_max)
         }
     )
     

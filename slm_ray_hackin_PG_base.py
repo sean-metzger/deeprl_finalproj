@@ -49,6 +49,7 @@ import ray
 from ray import tune
 from ray.rllib.agents.ppo import PPOTrainer
 from ray.tune.schedulers import PopulationBasedTraining
+from ray.rllib.agents.pg import PGTrainer
     
 def train_RL(config, checkpoint_dir=None): 
     """
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     ray.init(num_gpus=4, ignore_reinit_error=True, num_cpus=28)
     config = {
         'lr':5e-5,
-        'alpha': tune.loguniform(1e-5, args.alpha_max),
+        'alpha': tune.uniform(0, args.alpha_max),
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
         "num_workers": 0,
         "framework": "torch" if args.torch else "tf",
@@ -181,7 +182,7 @@ if __name__ == "__main__":
         time_attr='training_iteration', 
         perturbation_interval=args.perturbation_interval,
         hyperparam_mutations = { 
-            'alpha':tune.loguniform(1e-4, args.alpha_max)
+            'alpha':tune.uniform(0, args.alpha_max)
         }
     )
     

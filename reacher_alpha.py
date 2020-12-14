@@ -69,7 +69,7 @@ def train_RL(config, checkpoint_dir=None):
                        }
     config['evaluation_interval']=1
     config['env_config']={'alpha':alpha}
-    agent = PPOTrainer(env='LunarLander-v2', config=config) # initialize agent...
+    agent = PPOTrainer(env='FetchReach-v1', config=config) # initialize agent...
     
     if checkpoint_dir is not None: 
 #         for _ in range(10): 
@@ -91,7 +91,7 @@ def train_RL(config, checkpoint_dir=None):
             step = int(file.split('-')[1])
             path = os.path.join(path, file)
 #             print('new path', path)
-            agent= PPOTrainer(env='LunarLander-v2', config=config)
+            agent= PPOTrainer(env='FetchReach-v1', config=config)
             agent.restore(path)
             
         except Exception: 
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     ray.init(num_gpus=4, ignore_reinit_error=True, num_cpus=28)
     config = {
         'lr':5e-5,
-        'alpha': tune.loguniform(1e-5, args.alpha_max),
+        'alpha': tune.uniform(0, args.alpha_max),
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
         "num_workers": 0,
         "framework": "torch" if args.torch else "tf",
@@ -181,7 +181,7 @@ if __name__ == "__main__":
         time_attr='training_iteration', 
         perturbation_interval=args.perturbation_interval,
         hyperparam_mutations = { 
-            'alpha':tune.loguniform(1e-4, args.alpha_max)
+            'alpha':tune.uniform(0, args.alpha_max)
         }
     )
     
